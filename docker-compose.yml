@@ -1,0 +1,81 @@
+version: '3'
+
+networks:
+  app_net:
+
+services:
+  nginx-proxy:
+    image: jc21/nginx-proxy-manager
+    restart: unless-stopped
+    ports:
+      - 80:80
+      - 81:81
+      - 443:443
+    volumes:
+      - ./data:/data
+      - ./letsencrypt:/etc/letsencrypt
+    networks:
+      - app_net
+
+
+  app:
+    build:
+      context: .
+    container_name: app
+    # ports:
+    #   - 80:80
+    environment:
+      - DB_NAME=wpdb
+      - DB_USER=dbuser
+      - DB_PASSWORD=db$3cr3t
+      - DB_HOST=db
+      - DB_PREFIX=wp_
+      - WP_ENV=development
+      - WP_HOME=http://app.test
+      - WP_SITEURL=http://app.test/wp
+    # volumes:
+    #   - ./app:/var/www/root
+    #   - app_volume:/var/www/root
+    depends_on:
+      - nginx-proxy
+      - db
+      - pma
+    networks:
+      - app_net
+
+  db:
+    image: mariadb:10.7
+    container_name: mariadb
+    restart: unless-stopped
+    tty: true
+    ports:
+      - 3306:3306
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: wpdb
+      MYSQL_USER: dbuser
+      MYSQL_PASSWORD: db$3cr3t
+    volumes:
+      - db_volume:/var/lib/mysql
+    networks:
+      - app_net
+
+  pma:
+    image: phpmyadmin:latest
+    restart: always
+    depends_on:
+      - nginx-proxy
+      - db
+    # ports:
+    #   - 80:80 
+    environment:
+      - PMA_HOST=db
+      - PMA_USER=root
+      - PMA_PASSWORD=root
+      - UPLOAD_LIMIT=999M
+    networks:
+      - app_net
+
+volumes:
+  # app_volume:
+  db_volume:
